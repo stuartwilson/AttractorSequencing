@@ -2,7 +2,7 @@
 
 Evolving recurrent networks to store sequences of patterns
 
-Clone morphologica into the enclosing directory and then do the usual 
+Clone morphologica (https://github.com/ABRG-Models/morphologica.git) into the enclosing directory and then do the usual cmake procedure:
 
 ```
 mkdir build
