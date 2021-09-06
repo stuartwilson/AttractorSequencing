@@ -13,9 +13,10 @@ cd ..
 
 Run the model and inspect the results using
 
-'./build/model config.json logs 1'
-'cat logs/log.txt'
-'python analysis.py logs/data/h5'
+```./build/model config.json logs 1
+cat logs/log.txt
+python analysis.py logs/data/h5
+```
 
 Enjoy!
 
