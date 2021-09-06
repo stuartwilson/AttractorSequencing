@@ -4,11 +4,12 @@ Evolving recurrent networks to store sequences of patterns
 
 Clone morphologica into the enclosing directory and then do the usual 
 
-'mkdir build'
-'cd build'
-'cmake ..'
-'make' 
-'cd ..'
+```mkdir build
+cd build
+cmake ..
+make 
+cd ..
+```
 
 Run the model and inspect the results using
 
