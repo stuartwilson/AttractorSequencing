@@ -3,12 +3,65 @@
 #include <fstream>
 #include <sstream>
 #include <math.h>
+#include <morph/Config.h>
+#include <morph/HdfData.h>
+#include <morph/Random.h>
 
 using namespace std;
 
-double randDouble(void){
-    return ((double) rand())/(double)RAND_MAX;
+
+//double randDouble(void){
+//    return ((double) rand())/(double)RAND_MAX;
+//}
+
+vector<string> getSplitSentence(std::string sequence){
+    vector<string> seq;
+    std::string s = sequence;
+    std::string delimiter = " ";
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+        token = s.substr(0, pos);
+        seq.push_back(token);
+        s.erase(0, pos + delimiter.length());
+    }
+    seq.push_back(s);
+    return seq;
 }
+
+string removeSpaces(std::string sequence){
+    stringstream seq;
+    std::string s = sequence;
+    std::string delimiter = " ";
+    size_t pos = 0;
+    std::string token;
+    while ((pos = s.find(delimiter)) != std::string::npos) {
+        token = s.substr(0, pos);
+        seq<<token;
+        s.erase(0, pos + delimiter.length());
+    }
+    seq<<s;
+    return seq.str();
+}
+
+std::vector<char> getUniqueInString(string st, bool removespaces=true){
+    string s = st;
+    if(removespaces){
+        s = removeSpaces(st);
+    }
+
+    std::vector<char> unique;
+    for(int i=0;i<s.size();i++){
+        bool uni = true;
+        for(int k=0;k<unique.size();k++){
+            if(s[i]==unique[k]){ uni = false; break; }
+        } if(uni){
+            unique.push_back(s[i]);
+        }
+    }
+    return unique;
+}
+
 
 vector<int> bools2poles(vector<bool> x){
     vector<int> y;
@@ -44,7 +97,7 @@ int bin2int(vector<bool> b){
     return k;
 }
 
-
+/*
 vector<int> randPermute(int x){
     vector<int> X(x);
     for(int i=0;i<x;i++){
@@ -52,29 +105,28 @@ vector<int> randPermute(int x){
     }
     vector<int> Y(x);
     for(int i=0;i<x;i++){
-        int index = floor(randDouble()*X.size());
+        int index = floor(randDouble.get()*X.size());
         Y[i] = X[index];
         X.erase (X.begin()+index);
     }
     return Y;
 }
-
-
+*/
 
 class Alphabet {
 
-    public:
-        int Nbits;
-        int Nassigned;
-        vector<string> strings;
-        vector<vector<bool> > binaries;
+public:
+    unsigned int bitsPerSymbol;
+    int Nassigned;
+    vector<string> strings;
+    vector<vector<bool> > binaries;
 
-    Alphabet(int Nbits){
+    Alphabet(int bitsPerSymbol){
         Nassigned = 0;
-        this->Nbits = Nbits;
-        strings.resize(pow(2,Nbits),"#");
-        for(int i=0;i<pow(2,Nbits);i++){
-            binaries.push_back(int2bin(i,Nbits));
+        this->bitsPerSymbol = bitsPerSymbol;
+        strings.resize(pow(2,bitsPerSymbol),"#");
+        for(int i=0;i<pow(2,bitsPerSymbol);i++){
+            binaries.push_back(int2bin(i,bitsPerSymbol));
         }
     }
 
@@ -96,23 +148,6 @@ class Alphabet {
     string getString(vector<bool> bin){
         return strings[bin2int(bin)];
     }
-
-/*
-    void initAlphabet(void){
-        vector<string> a = {"a","b","c","d","e","f","g","h","i","j","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z"};
-        for(int i=0;i<a.size();i++){
-            addSymbol(a[i]);
-        }
-    }
-*/
-
-    void initAlphabet(void){
-        vector<string> a = {"p","i","a","t","e","h","r","g"};
-        for(int i=0;i<a.size();i++){
-            addSymbol(a[i]);
-        }
-    }
-
 
 };
 
@@ -147,7 +182,7 @@ public:
         for(int i=0;i<N;i++){
             int s = 0;
             for(int j=0;j<N;j++){
-                s += W[k]*Scp[j]; // USING S RATHER THAN Scp HERE MAKES IT ASYNCHRONOUS (TECHNICALLY)
+                s += W[k]*Scp[j]; // USING S RATHER THAN Scp HERE MAKES UPDATING (FIXED ORDER) ASYNCHRONOUS
                 k++;
             }
 
@@ -158,7 +193,6 @@ public:
             }
 
         }
-
 
         //CHECK POINT ATTRACTOR
         bool repeatedState = true;
@@ -186,264 +220,255 @@ public:
         cout<<"]"<<endl;
     }
 
-    void printState(bool repeatedState){
+    string printState(bool repeatedState){
 
+        stringstream ss;
         for(int i=0;i<N;i++){
             switch(S[i]){
-                case(0):{  cout<<"0"; } break;
-                case(1):{  cout<<"+"; } break;
-                case(-1):{ cout<<"-"; } break;
-                default:{  cout<<"?"; } break;
+                case(0):{  ss<<"0"; } break;
+                case(1):{  ss<<"+"; } break;
+                case(-1):{ ss<<"-"; } break;
+                default:{  ss<<"?"; } break;
             }
         }
         if(repeatedState){
-            cout<<"*  ";
+            ss<<"*  ";
         } else {
-            cout<<"   ";
+            ss<<"   ";
         }
+        ss<<endl;
+        return ss.str();
     }
 
 
-    void printState(bool repeatedState, Alphabet A, int nLetters){
+    string printState(bool repeatedState, Alphabet A, int nLetters){
 
+        stringstream ss;
         if(S[0]==1){
-            cout<<"# ";
+            ss<<"# ";
         } else {
-            cout<<"  ";
+            ss<<"  ";
         }
         int k=1;
         for(int i=0;i<nLetters;i++){ // nletters in word
             vector<bool> letter;
-            for(int j=0;j<A.Nbits;j++){ // nbits in letter
+            for(int j=0;j<A.bitsPerSymbol;j++){
                 letter.push_back(S[k]==1);
                 k++;
             }
-            cout<<A.getString(letter);
+            ss<<A.getString(letter);
         }
 
         if(repeatedState){
-            cout<<" *  ";
+            ss<<" *  ";
         } else {
-            cout<<"    ";
+            ss<<"    ";
         }
-        cout<<endl;
-
+        ss<<endl;
+        return ss.str();
     }
-
 
 };
 
 int main(int argc, char** argv){
 
-    std::stringstream ss;
+    morph::Config conf(argv[1]);
+    std::string logpath = argv[2];
+    morph::Tools::createDir (logpath);
     ofstream logfile;
-    ss<<argv[1];
-    logfile.open(ss.str().c_str(),ios::out|ios::app);
-
-    Alphabet A(4);
-    int nLetters = 3;
-    int N = nLetters*A.Nbits+1;//16;//stoi(argv[2]); // 3x5-bit letters and 1 transition bit
-    int G = 1000000;//1000000;
-    double pMutate = stof(argv[3]);
-    int samples = stoi(argv[4]);
-
-    int Ncx = 3;
-
-    srand(stoi(argv[5]));
-    bool printout = samples<2;
-
-    int Nsq = N*N;
-    int tMax = Nsq*2;
-
-    vector<vector<int> > I(Ncx,vector<int>(N,-1)); // initial
-    vector<vector<int> > T(Ncx,vector<int>(N,-1)); // target
-
-
-
-    A.initAlphabet();
-    vector<bool> w1(1,false); // first bit is switching flag
-    vector<bool> w2(1,false);
-    vector<bool> w3(1,false);
-    vector<bool> w4(1,false);
     {
-        int nbits = A.Nbits;
-        vector<bool> p = A.getBinary("p");
-        vector<bool> i = A.getBinary("i");
-        vector<bool> a = A.getBinary("a");
-        vector<bool> t = A.getBinary("t");
-        vector<bool> e = A.getBinary("e");
-        vector<bool> h = A.getBinary("h");
-        vector<bool> r = A.getBinary("r");
-        vector<bool> g = A.getBinary("g");
-
-        for(int k=0;k<nbits;k++){ w1.push_back(p[k]); }  //P
-        for(int k=0;k<nbits;k++){ w1.push_back(i[k]); }  //PI
-        for(int k=0;k<nbits;k++){ w1.push_back(p[k]); }  //PIP
-
-        for(int k=0;k<nbits;k++){ w2.push_back(a[k]); }  //A
-        for(int k=0;k<nbits;k++){ w2.push_back(t[k]); }  //AT
-        for(int k=0;k<nbits;k++){ w2.push_back(e[k]); }  //ATE
-
-        for(int k=0;k<nbits;k++){ w3.push_back(h[k]); }  //H
-        for(int k=0;k<nbits;k++){ w3.push_back(e[k]); }  //HE
-        for(int k=0;k<nbits;k++){ w3.push_back(r[k]); }  //HER
-
-        for(int k=0;k<nbits;k++){ w4.push_back(e[k]); }  //E
-        for(int k=0;k<nbits;k++){ w4.push_back(g[k]); }  //EG
-        for(int k=0;k<nbits;k++){ w4.push_back(g[k]); }  //EGG
-
+        std::stringstream ss;
+        ss<<logpath<<"/log.txt";
+        logfile.open(ss.str().c_str(),ios::out|ios::app);
     }
-    vector<bool> w1p = w1; w1p[0]=true; // first bit is the switching flag
-    vector<bool> w2p = w2; w2p[0]=true;
-    vector<bool> w3p = w3; w3p[0]=true;
-    vector<bool> w4p = w4; w4p[0]=true;
+    morph::RandUniform<double, std::mt19937_64> randDouble(stoi(argv[3]));
 
-    I[0] = bools2poles(w1p); // 1_PIP
-    T[0] = bools2poles(w2);  // 0_ATE
-    I[1] = bools2poles(w2p); // 1_ATE
-    T[1] = bools2poles(w3);  // 0_HER
-    I[2] = bools2poles(w3p); // 1_HER
-    T[2] = bools2poles(w4);  // 0_EGG
+    double P = conf.getDouble("p",0.05);
+    unsigned int G = conf.getUInt("generations", 1000000);
+    string s = conf.getString("sequence", "pip ate her egg");
+    vector<string> seq = getSplitSentence(s);
+    vector<char> su = getUniqueInString(s);
 
-    int nojoy = 0;
+    unsigned int symbolsPerWord = seq[0].size();
+    for(int i=1;i<seq.size();i++){
+        if(symbolsPerWord != seq[i].size()){
+            cout<<"Words can't be of different length";
+            return 0;
+        }
+    }
 
-    for(int q=0;q<samples;q++){
-
-        cout<<"."<<flush;
-
-        Hopfield H(N);
-
-        vector<int> genBetter;
-        vector<double> magBetter;
-
-        int Dmin = 1e9;
-        vector<bool> solved(Ncx,false);
-        bool failed = true;
-        for(int g=0;g<G;g++){
-
-            // MUTATE GENOME
-            vector<int> Wcp = H.W;
-            for(int i=0;i<H.Nsq;i++){
-                if(randDouble()<pMutate){
-                    if(randDouble()<0.5){
-                        H.W[i]++;
-                    } else {
-                        H.W[i]--;
-                    }
-                }
-            }
-
-            double D = 0;
-
-            for (int c=0;c<Ncx;c++){
-
-                // INTIALIZE CONTEXT
-                solved[c] = false;
-                for(int i=0;i<H.N;i++){
-                    H.S[i] = I[c][i];
-                }
-
-                // EVALUATE NETWORK
-                for(int t=0;t<tMax;t++){
-                    bool repeatedState = H.step();
-                    double d = H.getDistanceOfStateFrom(T[c]);
-                    if(repeatedState && d==0){
-                        solved[c] = true;
-                    }
-                    if(repeatedState){
-                        D += d*(tMax-t);
-                        break;
-                    } else {
-                        D += d;
-                    }
-                }
-            }
-
-            // CORRECT POINT ATTRACTORS FOR ALL CONTEXTS?
-            bool solution = true;
-            for(int c=0;c<Ncx;c++){
-                if(~solved[c]){
-                    solution = false;
-                }
-            }
-            if(solution){
-                genBetter.push_back(g);
-                magBetter.push_back(D);
-                logfile<<g<<","<<flush;
-                failed = false;
+    int minBits = 0;
+    {
+        int k=2;
+        for(int i=1;i<100;i++){
+            if(su.size()<=k){
+                minBits = i;
                 break;
             }
-
-            if(D<=Dmin){ // BETTER OR SAME
-                if(D<Dmin && printout){
-                    genBetter.push_back(g);
-                    magBetter.push_back(D);
-                }
-                Dmin = D;
-            } else {
-                H.W = Wcp;
-            }
-
+            k*=2;
         }
-        if(failed){
-            nojoy++ ;
+    }
+    unsigned int bitsPerSymbol = conf.getUInt("bitsPerSymbol", minBits);
+    if(bitsPerSymbol<minBits){
+        cout<<"More unique symbols than allowable combinations. Increase bitsPerSymbol in config"<<endl;
+        return 0;
+    }
+
+    Alphabet A(bitsPerSymbol);
+    for(int i=0;i<su.size();i++){
+        stringstream ss; ss<<su[i];
+        A.addSymbol(ss.str());
+    }
+
+    int N = symbolsPerWord*bitsPerSymbol+1;
+
+    unsigned int steps = conf.getUInt("steps",N*N*2);
+
+    int numContexts = seq.size()-1;
+
+    vector<vector<int> > I(numContexts,vector<int>(N,-1)); // initial
+    vector<vector<int> > T(numContexts,vector<int>(N,-1)); // target
+
+    for(int i=0;i<seq.size();i++){
+        vector<bool> word (1,false);
+        for(int j=0;j<seq[i].size();j++){
+            stringstream q; q<<seq[i][j];
+            vector<bool> binaryRep = A.getBinary(q.str());
+            for(int k=0;k<A.bitsPerSymbol;k++){ word.push_back(binaryRep[k]); }
         }
+        if(i<seq.size()-1){
+            I[i] = bools2poles(word);
+            I[i][0] = +1;
+        }
+        if(i>0){
+            T[i-1] = bools2poles(word);
+            T[i-1][0] = -1;
+        }
+    }
 
-        if(printout){
 
-            cout<<endl;
-            H.printWeights();
+    Hopfield H(N);
 
-            cout<<"gen:"<<endl;
-            for(int k=0;k<genBetter.size();k++){
-                cout<<genBetter[k]<<",";
-            } cout<<endl;
+    vector<int> genBetter;
+    vector<double> magBetter;
 
-            cout<<"mag:"<<endl;
-            for(int k=0;k<magBetter.size();k++){
-                cout<<magBetter[k]<<",";
-            } cout<<endl;
+    int Dmin = 1e9;
+    vector<bool> solved(numContexts,false);
+    bool failed = true;
+    for(int g=0;g<G;g++){
 
-            for(int c=0;c<Ncx; c++){
-                for(int i=0;i<H.N;i++){
-                    H.S[i] = I[c][i];
-                }
-                H.printState(false,A,nLetters);
-                cout<<endl;
-                for(int t=0;t<tMax;t++){
-                    bool repeatedState = H.step();
-                    H.printState(repeatedState,A,nLetters);
-                    cout<<endl;
-                    if(repeatedState){
-                        break;
-                    }
-                }
-                cout<<endl;
-            }
-            cout<<"###### RECALL #########"<<endl<<endl;
-
-            H.S = I[0];
-            H.printState(false,A,nLetters);
-            cout<<endl;
-            for(int i=0;i<3;i++){
-                for(int t=0;t<tMax;t++){
-                    bool repeatedState = H.step();
-                    H.printState(repeatedState,A,nLetters);
-                    H.S[0] = repeatedState*2-1;
-                    cout<<endl;
-                    if(repeatedState){
-                        //H.S[0]=-H.S[0];
-                         break;
-                    }
+        // PERTURB GENOME
+        vector<int> Wcp = H.W;
+        for(int i=0;i<H.Nsq;i++){
+            if(randDouble.get()<P){
+                if(randDouble.get()<0.5){
+                    H.W[i]++;
+                } else {
+                    H.W[i]--;
                 }
             }
-
         }
 
+        double D = 0;
+
+        for (int c=0;c<numContexts;c++){
+
+            // INTIALIZE CONTEXT
+            solved[c] = false;
+            for(int i=0;i<H.N;i++){
+                H.S[i] = I[c][i];
+            }
+
+            // EVALUATE NETWORK
+            for(int t=0;t<steps;t++){
+                bool repeatedState = H.step();
+                double d = H.getDistanceOfStateFrom(T[c]);
+                if(repeatedState && d==0){
+                    solved[c] = true;
+                }
+                if(repeatedState){
+                    D += d*(steps-t);
+                    break;
+                } else {
+                    D += d;
+                }
+            }
+        }
+
+        // CORRECT POINT ATTRACTORS FOR ALL CONTEXTS?
+        bool solution = true;
+        for(int c=0;c<numContexts;c++){
+            if(~solved[c]){
+                solution = false;
+            }
+        }
+        if(solution){
+            genBetter.push_back(g);
+            magBetter.push_back(D);
+            failed = false;
+            break;
+        }
+
+        if(D<=Dmin){ // BETTER OR SAME
+            if(D<Dmin){
+                genBetter.push_back(g);
+                magBetter.push_back(D);
+            }
+            Dmin = D;
+        } else {
+            H.W = Wcp;
+        }
 
     }
-    logfile<<endl;
-    logfile<<"No joy count: " << nojoy;
+
+    logfile<<"Associations:"<<endl<<endl;
+    for(int c=0;c<numContexts; c++){
+        for(int i=0;i<H.N;i++){
+            H.S[i] = I[c][i];
+        }
+        logfile<<H.printState(false,A,symbolsPerWord);
+        for(int t=0;t<steps;t++){
+            bool repeatedState = H.step();
+            logfile<<H.printState(repeatedState,A,symbolsPerWord);
+            if(repeatedState){
+                break;
+            }
+        }
+        logfile<<endl;
+    }
+    logfile<<"Recall:"<<endl<<endl;
+    H.S = I[0];
+    logfile<<H.printState(false,A,symbolsPerWord);
+    for(int i=0;i<I.size();i++){
+        for(int t=0;t<steps;t++){
+            bool repeatedState = H.step();
+            logfile<<H.printState(repeatedState,A,symbolsPerWord);
+            H.S[0] = repeatedState*2-1;
+            if(repeatedState){
+                //H.S[0]=-H.S[0];
+                break;
+            }
+        }
+    }
+
+    // SAVE VALUES
+    std::stringstream fname;
+    fname << logpath << "/data.h5";
+    morph::HdfData data(fname.str());
+    std::stringstream ss;
+    ss.str("");
+    ss.clear();
+    ss<<"/generations";
+    data.add_contained_vals (ss.str().c_str(), genBetter);
+    ss.str("");
+    ss.clear();
+    ss<<"/magnitude";
+    data.add_contained_vals (ss.str().c_str(), magBetter);
+    ss.str("");
+    ss.clear();
+    ss<<"/weights";
+    data.add_contained_vals (ss.str().c_str(), H.W);
+
     logfile.close();
 
     return 0;
