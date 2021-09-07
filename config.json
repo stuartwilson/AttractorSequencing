@@ -1,6 +1,6 @@
 {
     "p"  		: 0.05,
     "generations" 	: 1000000,
-    "sequence" 		: "pip ate her egg",
-    "bitsPerSymbol"	: 4
+    "sequence" 		: "pip ate the egg",
+    "bitsPerSymbol"	: 3
 }

@@ -98,20 +98,35 @@ int bin2int(vector<bool> b){
 }
 
 /*
-vector<int> randPermute(int x){
-    vector<int> X(x);
-    for(int i=0;i<x;i++){
-        X[i] = i;
+ vector<int> randPermute(int x){
+ vector<int> X(x);
+ for(int i=0;i<x;i++){
+ X[i] = i;
+ }
+ vector<int> Y(x);
+ for(int i=0;i<x;i++){
+ int index = floor(randDouble.get()*X.size());
+ Y[i] = X[index];
+ X.erase (X.begin()+index);
+ }
+ return Y;
+ }
+ */
+
+struct evaluation {
+    public:
+    bool solution;
+    double distance;
+    int cycleLength;
+    int stepsToCycle;
+    evaluation(bool solution, double distance, int cycleLength, int stepsToCycle){
+        this->solution = solution;
+        this->distance = distance;
+        this->cycleLength = cycleLength;
+        this->stepsToCycle = stepsToCycle;
     }
-    vector<int> Y(x);
-    for(int i=0;i<x;i++){
-        int index = floor(randDouble.get()*X.size());
-        Y[i] = X[index];
-        X.erase (X.begin()+index);
-    }
-    return Y;
-}
-*/
+
+};
 
 class Alphabet {
 
@@ -191,10 +206,8 @@ public:
             } else {
                 S[i] = -1;
             }
-
         }
 
-        //CHECK POINT ATTRACTOR
         bool repeatedState = true;
         for(int i=0;i<N;i++){
             if(S[i]!=Scp[i]){
@@ -204,6 +217,67 @@ public:
         }
         return repeatedState;
     }
+
+
+    evaluation evaluate(vector<int> I, vector<int> T, int steps){
+
+       double D = 0.0;
+        int sz=100;         // CURRENTLY HARD-CODED BUFFER SIZE - SHOULD BE UDER DEFINED AND POTENITALLY INFINITE
+        vector<vector<int> > buffer(sz,vector<int>(N,0));
+
+            bool solved = false;
+            S = I;
+
+            int cycle = 0;
+            buffer.push_back(S);
+            buffer.erase(buffer.begin());
+
+            int t;
+
+            for(t=0;t<steps;t++){
+                step();
+
+                double d = getDistanceOfStateFrom(T);
+                if((cycle==1) && d==0){
+                    solved = true;
+                }
+
+                int ki = sz-1;
+                for(int k=1;k<=sz;k++){
+                    bool rep = true;
+                    for(int i=0;i<N;i++){
+                        if(S[i]!=buffer[ki][i]){
+                            rep = false;
+                        }
+                    }
+                    if(rep){
+                        cycle = k;
+                        break;
+                    }
+                    ki--;
+                }
+
+                buffer.push_back(S);
+                buffer.erase(buffer.begin());
+
+                if(cycle>0){
+                
+                    double cycleSum = 0.;
+                    for(int w=0;w<cycle;w++){
+                        step();
+                        cycleSum += getDistanceOfStateFrom(T);
+                    }
+                    // D += cycleSum*(steps-t)/(double)cycle; // THIS REDUCES TAIL LENGTH TOO
+                    D += cycleSum / (double)cycle;
+                    break;
+                }
+            }
+
+        return evaluation(solved,D,cycle,t);
+
+    }
+
+
 
     void printWeights(void){
         cout<<"W=["<<endl;
@@ -264,6 +338,28 @@ public:
         } else {
             ss<<"    ";
         }
+        ss<<endl;
+        return ss.str();
+    }
+
+    string printState(vector<int> SS, Alphabet A, int nLetters){
+
+        stringstream ss;
+        if(SS[0]==1){
+            ss<<"# ";
+        } else {
+            ss<<"  ";
+        }
+        int k=1;
+        for(int i=0;i<nLetters;i++){ // nletters in word
+            vector<bool> letter;
+            for(int j=0;j<A.bitsPerSymbol;j++){
+                letter.push_back(SS[k]==1);
+                k++;
+            }
+            ss<<A.getString(letter);
+        }
+
         ss<<endl;
         return ss.str();
     }
@@ -369,39 +465,16 @@ int main(int argc, char** argv){
             }
         }
 
-        double D = 0;
-
-        for (int c=0;c<numContexts;c++){
-
-            // INTIALIZE CONTEXT
-            solved[c] = false;
-            for(int i=0;i<H.N;i++){
-                H.S[i] = I[c][i];
-            }
-
-            // EVALUATE NETWORK
-            for(int t=0;t<steps;t++){
-                bool repeatedState = H.step();
-                double d = H.getDistanceOfStateFrom(T[c]);
-                if(repeatedState && d==0){
-                    solved[c] = true;
-                }
-                if(repeatedState){
-                    D += d*(steps-t);
-                    break;
-                } else {
-                    D += d;
-                }
-            }
-        }
-
-        // CORRECT POINT ATTRACTORS FOR ALL CONTEXTS?
+        double D = 0.0;
         bool solution = true;
         for(int c=0;c<numContexts;c++){
-            if(~solved[c]){
+            evaluation E = H.evaluate(I[c],T[c],steps);
+            D += E.distance;
+            if(~E.solution){
                 solution = false;
             }
         }
+
         if(solution){
             genBetter.push_back(g);
             magBetter.push_back(D);
@@ -421,35 +494,38 @@ int main(int argc, char** argv){
 
     }
 
-    logfile<<"Associations:"<<endl<<endl;
-    for(int c=0;c<numContexts; c++){
-        for(int i=0;i<H.N;i++){
-            H.S[i] = I[c][i];
-        }
+    for(int c=0;c<numContexts;c++){
+        evaluation E = H.evaluate(I[c],T[c],steps);
+
+        logfile<<"Association "<<c<<endl;
+        H.S = I[c];
         logfile<<H.printState(false,A,symbolsPerWord);
-        for(int t=0;t<steps;t++){
-            bool repeatedState = H.step();
-            logfile<<H.printState(repeatedState,A,symbolsPerWord);
-            if(repeatedState){
-                break;
-            }
+        for(int t=0;t<E.stepsToCycle;t++){
+            H.step();
+            logfile<<H.printState(false,A,symbolsPerWord);
+        }
+        logfile<<"(cycle)"<<endl;
+        for(int t=0;t<E.cycleLength;t++){
+            H.step();
+            logfile<<"-"<<H.printState(false,A,symbolsPerWord);
         }
         logfile<<endl;
     }
-    logfile<<"Recall:"<<endl<<endl;
+
+    logfile<<"Recall"<<endl;
     H.S = I[0];
     logfile<<H.printState(false,A,symbolsPerWord);
     for(int i=0;i<I.size();i++){
         for(int t=0;t<steps;t++){
-            bool repeatedState = H.step();
-            logfile<<H.printState(repeatedState,A,symbolsPerWord);
-            H.S[0] = repeatedState*2-1;
-            if(repeatedState){
-                //H.S[0]=-H.S[0];
+            bool repeated = H.step();
+            logfile<<H.printState(repeated,A,symbolsPerWord);
+            if(repeated){
+                H.S[0] = +1;
                 break;
             }
         }
     }
+
 
     // SAVE VALUES
     std::stringstream fname;
