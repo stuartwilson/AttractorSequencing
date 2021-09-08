@@ -274,7 +274,7 @@ public:
             }
         }
 
-        return evaluation(((cycleLength==1) && getDistanceOfStateFrom(T)==0),distance,cycleLength,t);
+        return evaluation(((cycleLength==1) && getDistanceOfStateFrom(T)==-N),distance,cycleLength,t);
     }
 
 };
