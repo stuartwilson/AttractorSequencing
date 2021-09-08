@@ -1,4 +1,5 @@
-for i in {1..10}
+#!/bin/bash
+for i in $(seq $3)
     do
-        ./build/model config.json logs/log$i $i &
+        ./build/model $1 $2/log$i $i &
     done
