@@ -9,11 +9,6 @@
 
 using namespace std;
 
-
-//double randDouble(void){
-//    return ((double) rand())/(double)RAND_MAX;
-//}
-
 vector<string> getSplitSentence(std::string sequence){
     vector<string> seq;
     std::string s = sequence;
@@ -62,7 +57,6 @@ std::vector<char> getUniqueInString(string st, bool removespaces=true){
     return unique;
 }
 
-
 vector<int> bools2poles(vector<bool> x){
     vector<int> y;
     for(int i=0;i<x.size();i++){
@@ -75,7 +69,6 @@ vector<int> bools2poles(vector<bool> x){
     return y;
 }
 
-// CONVERT AN INTEGER TO A BINARY (VECTOR OF BOOLS)
 vector<bool> int2bin(long int i, long int n){
     vector<bool> x(n,false);
     long int a = pow(2,n-1);
@@ -97,24 +90,8 @@ int bin2int(vector<bool> b){
     return k;
 }
 
-/*
- vector<int> randPermute(int x){
- vector<int> X(x);
- for(int i=0;i<x;i++){
- X[i] = i;
- }
- vector<int> Y(x);
- for(int i=0;i<x;i++){
- int index = floor(randDouble.get()*X.size());
- Y[i] = X[index];
- X.erase (X.begin()+index);
- }
- return Y;
- }
- */
-
 struct evaluation {
-    public:
+public:
     bool solution;
     double distance;
     int cycleLength;
@@ -139,7 +116,7 @@ public:
     Alphabet(int bitsPerSymbol){
         Nassigned = 0;
         this->bitsPerSymbol = bitsPerSymbol;
-        strings.resize(pow(2,bitsPerSymbol),"#");
+        strings.resize(pow(2,bitsPerSymbol),"?");
         for(int i=0;i<pow(2,bitsPerSymbol);i++){
             binaries.push_back(int2bin(i,bitsPerSymbol));
         }
@@ -167,6 +144,40 @@ public:
 };
 
 
+string printState(vector<int> SS, Alphabet A, int nLetters){
+    stringstream ss;
+    int k=1;
+    for(int i=0;i<nLetters;i++){
+        vector<bool> letter;
+        for(int j=0;j<A.bitsPerSymbol;j++){
+            letter.push_back(SS[k]==1);
+            k++;
+        }
+        ss<<A.getString(letter);
+    }
+    if(SS[0]==1){
+        ss<<"+";
+    } else {
+        ss<<"-";
+    }
+    return ss.str();
+}
+
+string printState(vector<int> SS, bool repeatedState){
+    stringstream ss;
+    for(int i=0;i<SS.size();i++){
+        switch(SS[i]){
+            case(0):{  ss<<"0"; } break;
+            case(1):{  ss<<"+"; } break;
+            case(-1):{ ss<<"-"; } break;
+            default:{  ss<<"?"; } break;
+        }
+    }
+    return ss.str();
+}
+
+
+
 class Hopfield {
 
 public:
@@ -180,15 +191,6 @@ public:
         S.resize(N,0);
         Scp.resize(N,0);
     }
-
-    double getDistanceOfStateFrom(vector<int> T){
-        double d = 0;
-        for(int i=0;i<N;i++){
-            d -= S[i]*T[i];
-        }
-        return d;
-    }
-
 
     bool step(void){
 
@@ -208,160 +210,71 @@ public:
             }
         }
 
-        bool repeatedState = true;
         for(int i=0;i<N;i++){
             if(S[i]!=Scp[i]){
-                repeatedState = false;
-                break;
+                return false;
             }
         }
-        return repeatedState;
+        return true;
     }
 
+    double getDistanceOfStateFrom(vector<int> T){
+        double d = 0;
+        for(int i=0;i<N;i++){
+            d -= S[i]*T[i];
+        }
+        return d;
+    }
 
     evaluation evaluate(vector<int> I, vector<int> T, int steps){
 
-       double D = 0.0;
-        int sz=100;         // CURRENTLY HARD-CODED BUFFER SIZE - SHOULD BE UDER DEFINED AND POTENITALLY INFINITE
-        vector<vector<int> > buffer(sz,vector<int>(N,0));
+        double distance = 1e9;
+        int cycleLength = 0;
 
-            bool solved = false;
-            S = I;
+        S = I;
+        vector<vector<int> > buffer(1,S);
 
-            int cycle = 0;
-            buffer.push_back(S);
-            buffer.erase(buffer.begin());
+        // step dynamics until cycle
+        int t;
+        for(t=0;t<steps;t++){
 
-            int t;
+            step();
 
-            for(t=0;t<steps;t++){
-                step();
-
-                double d = getDistanceOfStateFrom(T);
-                if((cycle==1) && d==0){
-                    solved = true;
+            // check buffer for repeated states
+            int k = buffer.size()-1;
+            for(int j=1;j<=buffer.size();j++){
+                bool rep = true;
+                for(int i=0;i<N;i++){
+                    if(S[i]!=buffer[k][i]){
+                        rep = false;
+                    }
                 }
-
-                int ki = sz-1;
-                for(int k=1;k<=sz;k++){
-                    bool rep = true;
-                    for(int i=0;i<N;i++){
-                        if(S[i]!=buffer[ki][i]){
-                            rep = false;
-                        }
-                    }
-                    if(rep){
-                        cycle = k;
-                        break;
-                    }
-                    ki--;
-                }
-
-                buffer.push_back(S);
-                buffer.erase(buffer.begin());
-
-                if(cycle>0){
-                
-                    double cycleSum = 0.;
-                    for(int w=0;w<cycle;w++){
-                        step();
-                        cycleSum += getDistanceOfStateFrom(T);
-                    }
-                    // D += cycleSum*(steps-t)/(double)cycle; // THIS REDUCES TAIL LENGTH TOO
-                    D += cycleSum / (double)cycle;
+                if(rep){
+                    cycleLength = j;
                     break;
                 }
+                k--;
             }
 
-        return evaluation(solved,D,cycle,t);
+            // increment buffer
+            buffer.push_back(S);
 
-    }
+            // calculate the distance per state in limit cycle
+            if(cycleLength>0){
 
-
-
-    void printWeights(void){
-        cout<<"W=["<<endl;
-        int k=0;
-        for(int i=0;i<N;i++){
-            cout<<"[";
-            for(int j=0;j<N;j++){
-                cout<<W[k]<<",";
-                k++;
-            }
-            cout<<"],";
-            cout<<endl;
-        }
-        cout<<"]"<<endl;
-    }
-
-    string printState(bool repeatedState){
-
-        stringstream ss;
-        for(int i=0;i<N;i++){
-            switch(S[i]){
-                case(0):{  ss<<"0"; } break;
-                case(1):{  ss<<"+"; } break;
-                case(-1):{ ss<<"-"; } break;
-                default:{  ss<<"?"; } break;
+                // step dynamics around cycle
+                double cycleSumDistance = 0.;
+                for(int w=0;w<cycleLength;w++){
+                    step();
+                    cycleSumDistance += getDistanceOfStateFrom(T);
+                }
+                distance = cycleSumDistance;
+                // distance *= (steps-t); // Reduce tail length too?
+                break;
             }
         }
-        if(repeatedState){
-            ss<<"*  ";
-        } else {
-            ss<<"   ";
-        }
-        ss<<endl;
-        return ss.str();
-    }
 
-
-    string printState(bool repeatedState, Alphabet A, int nLetters){
-
-        stringstream ss;
-        if(S[0]==1){
-            ss<<"# ";
-        } else {
-            ss<<"  ";
-        }
-        int k=1;
-        for(int i=0;i<nLetters;i++){ // nletters in word
-            vector<bool> letter;
-            for(int j=0;j<A.bitsPerSymbol;j++){
-                letter.push_back(S[k]==1);
-                k++;
-            }
-            ss<<A.getString(letter);
-        }
-
-        if(repeatedState){
-            ss<<" *  ";
-        } else {
-            ss<<"    ";
-        }
-        ss<<endl;
-        return ss.str();
-    }
-
-    string printState(vector<int> SS, Alphabet A, int nLetters){
-
-        stringstream ss;
-        if(SS[0]==1){
-            ss<<"# ";
-        } else {
-            ss<<"  ";
-        }
-        int k=1;
-        for(int i=0;i<nLetters;i++){ // nletters in word
-            vector<bool> letter;
-            for(int j=0;j<A.bitsPerSymbol;j++){
-                letter.push_back(SS[k]==1);
-                k++;
-            }
-            ss<<A.getString(letter);
-        }
-
-        ss<<endl;
-        return ss.str();
+        return evaluation(((cycleLength==1) && getDistanceOfStateFrom(T)==0),distance,cycleLength,t);
     }
 
 };
@@ -375,12 +288,12 @@ int main(int argc, char** argv){
     {
         std::stringstream ss;
         ss<<logpath<<"/log.txt";
-        logfile.open(ss.str().c_str(),ios::out|ios::app);
+        logfile.open(ss.str().c_str(),ios::out|ios::app);//|std::ofstream::trunc);
     }
     morph::RandUniform<double, std::mt19937_64> randDouble(stoi(argv[3]));
 
     double P = conf.getDouble("p",0.05);
-    unsigned int G = conf.getUInt("generations", 1000000);
+    unsigned int trials = conf.getUInt("trials", 1000000);
     string s = conf.getString("sequence", "pip ate her egg");
     vector<string> seq = getSplitSentence(s);
     vector<char> su = getUniqueInString(s);
@@ -445,15 +358,18 @@ int main(int argc, char** argv){
 
     Hopfield H(N);
 
-    vector<int> genBetter;
-    vector<double> magBetter;
+    vector<int> trialInc;
+    vector<double> errorInc;
+    vector<double> stepsInc;
+    vector<double> cyLenInc;
+    vector<double> cyDisInc;
 
-    int Dmin = 1e9;
+    double errorMin = 1e9;
     vector<bool> solved(numContexts,false);
     bool failed = true;
-    for(int g=0;g<G;g++){
 
-        // PERTURB GENOME
+    for(int t=0;t<trials;t++){
+
         vector<int> Wcp = H.W;
         for(int i=0;i<H.Nsq;i++){
             if(randDouble.get()<P){
@@ -465,85 +381,156 @@ int main(int argc, char** argv){
             }
         }
 
-        double D = 0.0;
+
+        // evaluate network from each context and measure
+        double error = 0.0;
+        double stepsToCycle = 0.0;
+        double cycleLength = 0.0;
+        double cycleDistance = 0.0;
         bool solution = true;
         for(int c=0;c<numContexts;c++){
             evaluation E = H.evaluate(I[c],T[c],steps);
-            D += E.distance;
+            error += E.distance / (double) E.cycleLength;
+            stepsToCycle += E.stepsToCycle;
+            cycleLength += E.cycleLength;
+            cycleDistance += E.distance;
+
             if(~E.solution){
                 solution = false;
             }
         }
+        error /= (double)numContexts;
+        stepsToCycle /= (double)numContexts;
+        cycleLength /= (double)numContexts;
+        cycleDistance /= (double)numContexts;
+
 
         if(solution){
-            genBetter.push_back(g);
-            magBetter.push_back(D);
+            trialInc.push_back(t);
+            errorInc.push_back(error);
+            stepsInc.push_back(stepsToCycle);
+            cyLenInc.push_back(cycleLength);
+            cyDisInc.push_back(cycleDistance);
+
             failed = false;
             break;
         }
 
-        if(D<=Dmin){ // BETTER OR SAME
-            if(D<Dmin){
-                genBetter.push_back(g);
-                magBetter.push_back(D);
+        if(error<=errorMin){ // BETTER OR SAME
+            if(error<errorMin){
+                trialInc.push_back(t);
+                errorInc.push_back(error);
+                stepsInc.push_back(stepsToCycle);
+                cyLenInc.push_back(cycleLength);
+                cyDisInc.push_back(cycleDistance);
             }
-            Dmin = D;
+            errorMin = error;
         } else {
             H.W = Wcp;
         }
 
     }
 
+
+    // PRINT OUTPUTS TO FILE
+    logfile<<"SEED: "<<stoi(argv[3])<<endl<<endl;
+
+
+    // PRINT ASSOCIATIONS TO FILE
     for(int c=0;c<numContexts;c++){
         evaluation E = H.evaluate(I[c],T[c],steps);
-
-        logfile<<"Association "<<c<<endl;
+        logfile<<"ASSOC. "<<c<<" ("<<printState(I[c],A,symbolsPerWord)<<" --> "<<printState(T[c],A,symbolsPerWord)<<"):"<<endl;
         H.S = I[c];
-        logfile<<H.printState(false,A,symbolsPerWord);
+        logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
         for(int t=0;t<E.stepsToCycle;t++){
             H.step();
-            logfile<<H.printState(false,A,symbolsPerWord);
+            logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
         }
-        logfile<<"(cycle)"<<endl;
+        logfile<<"      cycle:"<<endl;
         for(int t=0;t<E.cycleLength;t++){
             H.step();
-            logfile<<"-"<<H.printState(false,A,symbolsPerWord);
+            logfile<<"        "<<printState(H.S,A,symbolsPerWord)<<endl;
         }
         logfile<<endl;
     }
 
-    logfile<<"Recall"<<endl;
+    // PRINT RECALL TO FILE
+    vector<double> finalRecallErr(1,0);
+    stringstream rr;
+    logfile<<"TRAIN:"<<endl;
     H.S = I[0];
-    logfile<<H.printState(false,A,symbolsPerWord);
+    logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
+    rr<<printState(H.S,A,symbolsPerWord)<<" ";
     for(int i=0;i<I.size();i++){
         for(int t=0;t<steps;t++){
             bool repeated = H.step();
-            logfile<<H.printState(repeated,A,symbolsPerWord);
+            logfile<<" "<<printState(H.S,A,symbolsPerWord);
             if(repeated){
+                logfile<<"*"<<endl;
+                rr<<printState(H.S,A,symbolsPerWord)<<" ";
+                finalRecallErr[0] = H.getDistanceOfStateFrom(T[T.size()-1]);
                 H.S[0] = +1;
                 break;
             }
+            logfile<<endl;
         }
     }
+    logfile<<endl<<"RECALL: "<<endl<<" "<<'"'<<rr.str()<<'"'<<endl;
 
 
-    // SAVE VALUES
+    // STORE DATA
     std::stringstream fname;
     fname << logpath << "/data.h5";
     morph::HdfData data(fname.str());
     std::stringstream ss;
-    ss.str("");
-    ss.clear();
-    ss<<"/generations";
-    data.add_contained_vals (ss.str().c_str(), genBetter);
-    ss.str("");
-    ss.clear();
-    ss<<"/magnitude";
-    data.add_contained_vals (ss.str().c_str(), magBetter);
-    ss.str("");
-    ss.clear();
-    ss<<"/weights";
+
+    // SAVE TRAINING METRICS (mean over contexts)
+    ss.str(""); ss.clear(); ss<<"/trialInc";
+    data.add_contained_vals (ss.str().c_str(), trialInc);
+    ss.str(""); ss.clear(); ss<<"/errorInc";
+    data.add_contained_vals (ss.str().c_str(), errorInc);
+    ss.str(""); ss.clear(); ss<<"/stepsInc";
+    data.add_contained_vals (ss.str().c_str(), stepsInc);
+    ss.str(""); ss.clear(); ss<<"/cyLenInc";
+    data.add_contained_vals (ss.str().c_str(), cyLenInc);
+    ss.str(""); ss.clear(); ss<<"/cyDisInc";
+    data.add_contained_vals (ss.str().c_str(), cyDisInc);
+
+
+    // SAVE TESTING METRICS (for each context)
+    vector<double> errorFin;
+    vector<double> stepsFin;
+    vector<double> cyLenFin;
+    vector<double> cyDisFin;
+    for(int c=0;c<numContexts;c++){
+        evaluation E = H.evaluate(I[c],T[c],steps);
+        errorFin.push_back(E.distance / (double) E.cycleLength);
+        stepsFin.push_back(E.stepsToCycle);
+        cyLenFin.push_back(E.cycleLength);
+        cyDisFin.push_back(E.distance);
+    }
+    ss.str(""); ss.clear(); ss<<"/errorFin";
+    data.add_contained_vals (ss.str().c_str(), errorFin);
+    ss.str(""); ss.clear(); ss<<"/stepsFin";
+    data.add_contained_vals (ss.str().c_str(), stepsFin);
+    ss.str(""); ss.clear(); ss<<"/cyLenFin";
+    data.add_contained_vals (ss.str().c_str(), cyLenFin);
+    ss.str(""); ss.clear(); ss<<"/cyDisFin";
+    data.add_contained_vals (ss.str().c_str(), cyDisFin);
+
+    // SAVE FINAL WEIGHTS
+    ss.str(""); ss.clear(); ss<<"/weights";
     data.add_contained_vals (ss.str().c_str(), H.W);
+
+    ss.str(""); ss.clear(); ss<<"/finalDistance";
+    data.add_contained_vals (ss.str().c_str(), finalRecallErr);
+
+    ss.str(""); ss.clear(); ss<<"/sentence: "<<rr.str();
+    data.add_contained_vals (ss.str().c_str(), vector<int>(1,0));
+
+    ss.str(""); ss.clear(); ss<<"/N";
+    data.add_contained_vals (ss.str().c_str(), vector<int>(1,H.N));
+
 
     logfile.close();
 
