@@ -366,7 +366,6 @@ int main(int argc, char** argv){
 
     double errorMin = 1e9;
     vector<bool> solved(numContexts,false);
-    bool failed = true;
 
     for(int t=0;t<trials;t++){
 
@@ -395,7 +394,7 @@ int main(int argc, char** argv){
             cycleLength += E.cycleLength;
             cycleDistance += E.distance;
 
-            if(~E.solution){
+            if(!E.solution){
                 solution = false;
             }
         }
@@ -411,8 +410,6 @@ int main(int argc, char** argv){
             stepsInc.push_back(stepsToCycle);
             cyLenInc.push_back(cycleLength);
             cyDisInc.push_back(cycleDistance);
-
-            failed = false;
             break;
         }
 
