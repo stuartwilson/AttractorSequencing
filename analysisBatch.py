@@ -1,5 +1,4 @@
 import numpy as np
-import pylab as pl
 import sys
 
 F = np.load(sys.argv[1])
