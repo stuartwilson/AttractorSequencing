@@ -317,7 +317,10 @@ int main(int argc, char** argv){
         s<<B;
     }
 
-    cout<<AA.size()<<endl;
+    if(!AA.size()){
+    	cout<<"No associations supplied in config file"<<endl;
+	return 0;
+    }
 
     vector<char> su = getUniqueInString(s.str());
 
