@@ -294,13 +294,36 @@ int main(int argc, char** argv){
 
     double P = conf.getDouble("p",0.05);
     unsigned int trials = conf.getUInt("trials", 1000000);
-    string s = conf.getString("sequence", "pip ate her egg");
-    vector<string> seq = getSplitSentence(s);
-    vector<char> su = getUniqueInString(s);
 
-    unsigned int symbolsPerWord = seq[0].size();
-    for(int i=1;i<seq.size();i++){
-        if(symbolsPerWord != seq[i].size()){
+
+    // Read in contexts info
+
+    stringstream s;
+    vector<string> AA, BB;
+
+    const Json::Value assocs = conf.getArray ("associations");
+
+    for (unsigned int i = 0; i < assocs.size(); ++i) {
+        Json::Value associ = assocs[i];
+
+        Json::Value associA = associ["A"];
+        std::string A = associA.asString();
+        AA.push_back(A);
+        s<<A;
+
+        Json::Value associB = associ["B"];
+        std::string B = associB.asString();
+        BB.push_back(B);
+        s<<B;
+    }
+
+    cout<<AA.size()<<endl;
+
+    vector<char> su = getUniqueInString(s.str());
+
+    unsigned int symbolsPerWord = AA[0].size();
+    for(int i=1;i<AA.size();i++){
+        if((symbolsPerWord != AA[i].size())|| (symbolsPerWord != BB[i].size())){
             cout<<"Words can't be of different length";
             return 0;
         }
@@ -333,25 +356,30 @@ int main(int argc, char** argv){
 
     unsigned int steps = conf.getUInt("steps",N*N*2);
 
-    int numContexts = seq.size()-1;
+    int numContexts = AA.size();
 
     vector<vector<int> > I(numContexts,vector<int>(N,-1)); // initial
     vector<vector<int> > T(numContexts,vector<int>(N,-1)); // target
 
-    for(int i=0;i<seq.size();i++){
+    for(int i=0;i<AA.size();i++){
         vector<bool> word (1,false);
-        for(int j=0;j<seq[i].size();j++){
-            stringstream q; q<<seq[i][j];
+        for(int j=0;j<AA[i].size();j++){
+            stringstream q; q<<AA[i][j];
             vector<bool> binaryRep = A.getBinary(q.str());
             for(int k=0;k<A.bitsPerSymbol;k++){ word.push_back(binaryRep[k]); }
-        }
-        if(i<seq.size()-1){
             I[i] = bools2poles(word);
             I[i][0] = +1;
         }
-        if(i>0){
-            T[i-1] = bools2poles(word);
-            T[i-1][0] = -1;
+    }
+
+    for(int i=0;i<BB.size();i++){
+        vector<bool> word (1,false);
+        for(int j=0;j<BB[i].size();j++){
+            stringstream q; q<<BB[i][j];
+            vector<bool> binaryRep = A.getBinary(q.str());
+            for(int k=0;k<A.bitsPerSymbol;k++){ word.push_back(binaryRep[k]); }
+            T[i] = bools2poles(word);
+            T[i][0] = -1;
         }
     }
 
