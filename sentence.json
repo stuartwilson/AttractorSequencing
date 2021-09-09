@@ -1,0 +1,6 @@
+{
+    "p"  		: 0.05,
+    "trials" 		: 1000000,
+    "associations" 	: [{"A":"pip","B":"ate"},{"A":"ate","B":"her"},{"A":"her","B":"egg"}],
+    "bitsPerSymbol"	: 4
+}
