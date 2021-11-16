@@ -163,7 +163,7 @@ string printState(vector<int> SS, Alphabet A, int nLetters){
     return ss.str();
 }
 
-string printState(vector<int> SS, bool repeatedState){
+string printState(vector<int> SS){
     stringstream ss;
     for(int i=0;i<SS.size();i++){
         switch(SS[i]){
@@ -199,7 +199,8 @@ public:
         for(int i=0;i<N;i++){
             int s = 0;
             for(int j=0;j<N;j++){
-                s += W[k]*Scp[j]; // USING S RATHER THAN Scp HERE MAKES UPDATING (FIXED ORDER) ASYNCHRONOUS
+                s += W[k]*Scp[j]; //    SYNCHRONOUS UPDATING
+                //s += W[k]*S[j]; //    ASYNCHRONOUS (FIXED ORDER) UPDATING
                 k++;
             }
 
@@ -218,6 +219,8 @@ public:
         return true;
     }
 
+
+    // NOTE THIS VERSION INCLUDES THE FIRST NODE
     double getDistanceOfStateFrom(vector<int> T){
         double d = 0;
         for(int i=0;i<N;i++){
@@ -225,6 +228,18 @@ public:
         }
         return d;
     }
+
+
+/*
+    // NOTE THIS VERSION IGNORES THE FIRST NODE
+    double getDistanceOfStateFrom(vector<int> T){
+        double d = -1;
+        for(int i=1;i<N;i++){
+            d -= S[i]*T[i];
+        }
+        return d;
+    }
+*/
 
     evaluation evaluate(vector<int> I, vector<int> T, int steps){
 
@@ -269,7 +284,6 @@ public:
                     cycleSumDistance += getDistanceOfStateFrom(T);
                 }
                 distance = cycleSumDistance;
-                // distance *= (steps-t); // Reduce tail length too?
                 break;
             }
         }
@@ -421,6 +435,7 @@ int main(int argc, char** argv){
         for(int c=0;c<numContexts;c++){
             evaluation E = H.evaluate(I[c],T[c],steps);
             error += E.distance / (double) E.cycleLength;
+            //error += E.distance * (steps-E.stepsToCycle) / (double) E.cycleLength;    // REDUCES TAIL LENGTH TOO
             stepsToCycle += E.stepsToCycle;
             cycleLength += E.cycleLength;
             cycleDistance += E.distance;
@@ -463,21 +478,24 @@ int main(int argc, char** argv){
     // PRINT OUTPUTS TO FILE
     logfile<<"SEED: "<<stoi(argv[3])<<endl<<endl;
 
+    string space = "          ";
+    string spaceTrain = "         ";
+    string spaceCyc = "   ";
 
     // PRINT ASSOCIATIONS TO FILE
     for(int c=0;c<numContexts;c++){
         evaluation E = H.evaluate(I[c],T[c],steps);
         logfile<<"ASSOC. "<<c<<" ("<<printState(I[c],A,symbolsPerWord)<<" --> "<<printState(T[c],A,symbolsPerWord)<<"):"<<endl;
         H.S = I[c];
-        logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
+        logfile<<" "<<printState(H.S,A,symbolsPerWord)<<space<<printState(H.S)<<endl;
         for(int t=0;t<E.stepsToCycle;t++){
             H.step();
-            logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
+            logfile<<" "<<printState(H.S,A,symbolsPerWord)<<space<<printState(H.S)<<endl;
         }
-        logfile<<"      cycle:"<<endl;
+        //logfile<<"      cycle:"<<endl;
         for(int t=0;t<E.cycleLength;t++){
             H.step();
-            logfile<<"        "<<printState(H.S,A,symbolsPerWord)<<endl;
+            logfile<<"        "<<printState(H.S,A,symbolsPerWord)<<spaceCyc<<printState(H.S)<<endl;
         }
         logfile<<endl;
     }
@@ -487,20 +505,20 @@ int main(int argc, char** argv){
     stringstream rr;
     logfile<<"TRAIN:"<<endl;
     H.S = I[0];
-    logfile<<" "<<printState(H.S,A,symbolsPerWord)<<endl;
+    logfile<<" "<<printState(H.S,A,symbolsPerWord)<<" "<<spaceTrain<<printState(H.S)<<endl;
     rr<<printState(H.S,A,symbolsPerWord)<<" ";
     for(int i=0;i<I.size();i++){
         for(int t=0;t<steps;t++){
             bool repeated = H.step();
             logfile<<" "<<printState(H.S,A,symbolsPerWord);
             if(repeated){
-                logfile<<"*"<<endl;
+                logfile<<"*"<<spaceTrain<<printState(H.S)<<endl;
                 rr<<printState(H.S,A,symbolsPerWord)<<" ";
                 finalRecallErr[0] = H.getDistanceOfStateFrom(T[T.size()-1]);
                 H.S[0] = +1;
                 break;
             }
-            logfile<<endl;
+            logfile<<" "<<spaceTrain<<printState(H.S)<<endl;
         }
     }
     logfile<<endl<<"RECALL: "<<endl<<" "<<'"'<<rr.str()<<'"'<<endl;
